@@ -280,6 +280,22 @@ class EXIF:
     def has_dji_xmp(self):
         return (len(self.xmp) > 0) and ('@drone-dji:Latitude' in self.xmp[0])
 
+    def extract_dji_dop(self):
+        dop = -9999
+        for p in ['@drone-dji:RtkStdLon', '@drone-dji:RtkStdLat', '@drone-dji:RtkStdHgt']:
+            if p in self.xmp[0]:
+                dop = max(float(self.xmp[0].get(p)), dop)
+        if dop > 0:
+            return dop
+    
+    def extract_gps_accuracy(self):
+        dop = -9999
+        for p in ['@Camera:GPSXYAccuracy', '@Camera:GPSZAccuracy']:
+            if p in self.xmp[0]:
+                dop = max(float(self.xmp[0].get(p)), dop)
+        if dop > 0:
+            return dop
+        
     def extract_lon_lat(self):
         if self.has_dji_xmp():
             lon, lat = self.extract_dji_lon_lat()
@@ -303,6 +319,10 @@ class EXIF:
     def extract_dop(self):
         if 'GPS GPSDOP' in self.tags:
             dop = eval_frac(self.tags['GPS GPSDOP'].values[0])
+        elif len(self.xmp) > 0 and '@drone-dji:RtkStdLon' in self.xmp[0]:
+            dop = self.extract_dji_dop() * 2
+        elif len(self.xmp) > 0 and '@Camera:GPSXYAccuracy' in self.xmp[0]:
+            dop = self.extract_gps_accuracy() * 2
         else:
             dop = None
         return dop
