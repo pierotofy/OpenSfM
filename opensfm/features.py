@@ -125,6 +125,20 @@ def extract_features_sift(image, config):
     return points, desc
 
 
+def extract_features_gpusift(image, config):
+    from pypopsift import popsift
+
+    points, desc = popsift(image.astype(np.float32) / 255, 
+                           peak_threshold=float(config['sift_peak_threshold']),
+                           edge_threshold=float(config['sift_edge_threshold']),
+                           target_num_features=int(config['feature_min_frames']),
+                           use_root=bool(config['feature_root']))
+    #if config['feature_root']:
+    #    desc = root_feature(desc)
+
+    return points, desc
+
+
 def extract_features_surf(image, config):
     surf_hessian_threshold = config['surf_hessian_threshold']
     if context.OPENCV3:
@@ -269,6 +283,8 @@ def extract_features(color_image, config):
     feature_type = config['feature_type'].upper()
     if feature_type == 'SIFT':
         points, desc = extract_features_sift(image, config)
+    elif feature_type == 'GPUSIFT':
+        points, desc = extract_features_gpusift(image, config)
     elif feature_type == 'SURF':
         points, desc = extract_features_surf(image, config)
     elif feature_type == 'AKAZE':
