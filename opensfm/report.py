@@ -217,6 +217,9 @@ class Report:
             geo_string.append("GPS")
         if self._has_meaningful_gcp():
             geo_string.append("GCP")
+        
+        if "align" in self.stats:
+            geo_string = ["Alignment"]
 
         ratio_shots = rec_shots / init_shots * 100 if init_shots > 0 else -1
         rows = [
@@ -260,10 +263,15 @@ class Report:
 
         row_gps_gcp = [" / ".join(geo_string) + " errors"]
         geo_errors = []
-        if self.stats["reconstruction_statistics"]["has_gps"]:
-            geo_errors.append(f"{self.stats['gps_errors']['average_error']:.2f}")
-        if self._has_meaningful_gcp():
-            geo_errors.append(f"{self.stats['gcp_errors']['average_error']:.2f}")
+        
+        if not "align" in self.stats:
+            if self.stats["reconstruction_statistics"]["has_gps"]:
+                geo_errors.append(f"{self.stats['gps_errors']['average_error']:.2f}")
+            if self._has_meaningful_gcp():
+                geo_errors.append(f"{self.stats['gcp_errors']['average_error']:.2f}")
+        else:
+            geo_errors.append(f"{(self.stats['align']['coarse']['rmse_3d'] + self.stats['align']['fine']['rmse_3d']):.2f}")
+        
         row_gps_gcp.append(" / ".join(geo_errors) + " meters")
         rows.append(row_gps_gcp)
 
@@ -386,6 +394,26 @@ class Report:
         # self._make_table(columns_names, rows)
 
         self.pdf.set_xy(self.margin, self.pdf.get_y() + self.margin / 2)
+
+    def make_align_details(self) -> None:
+        self._make_section("Alignment Errors Details")
+
+        # Alignment
+        rows = []
+        columns_names = ["", "DSM (Coarse)", "ICP (Fine)", "RMS Error"]
+        for comp in ["x", "y", "z", "3d"]:
+            row = [comp.upper() + " Error (meters)"]
+            row.append(f"{self.stats['align']['coarse']['rmse_' + comp]:.3f}")
+            row.append(f"{self.stats['align']['fine']['rmse_' + comp]:.3f}")
+            row.append(f"{(self.stats['align']['coarse']['rmse_' + comp] + self.stats['align']['fine']['rmse_' + comp]):.3f}")
+            rows.append(row)
+
+        self._make_table(columns_names, rows)
+        self.pdf.set_xy(self.margin, self.pdf.get_y() + self.margin / 2)
+
+        dsm_feature_matches = os.path.join(self.output_path, "codem", "dsm_feature_matches.png")
+        if os.path.isfile(dsm_feature_matches):
+            self._make_centered_image(dsm_feature_matches, 80)
 
     def make_features_details(self) -> None:
         self._make_section("Features Details")
@@ -640,10 +668,13 @@ class Report:
         if os.path.isfile(os.path.join(self.output_path, "overlap.png")):
             self.make_survey_data()
         
-        self.make_gps_details()
+        if "align" not in self.stats:
+            self.make_gps_details()
 
-        if os.path.isfile(os.path.join(self.output_path, "ground_control_points.json")):
-            self.make_gcp_error_details()
+            if os.path.isfile(os.path.join(self.output_path, "ground_control_points.json")):
+                self.make_gcp_error_details()
+        else:
+            self.make_align_details()
 
         self.add_page_break()
 
