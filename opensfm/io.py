@@ -835,7 +835,7 @@ def _read_gcp_list_lines(
 ) -> List[pymap.GroundControlPoint]:
     points = {}
     for line in lines:
-        words = line.split(None, 5)
+        words = line.split(None, 6)
         easting, northing, alt, pixel_x, pixel_y = map(float, words[:5])
         key = (easting, northing, alt)
 
@@ -859,7 +859,11 @@ def _read_gcp_list_lines(
                 lon, lat = easting, northing
 
             point = pymap.GroundControlPoint()
-            point.id = "GCP-%d" % len(points)
+            if len(words) > 6:
+                point.id = words[6].strip()
+            else:
+                point.id = "GCP-%d" % len(points)
+
             point.lla = {"latitude": lat, "longitude": lon, "altitude": alt}
             point.has_altitude = has_altitude
 
