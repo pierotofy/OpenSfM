@@ -1252,6 +1252,9 @@ def imread_from_fileobject(
 
     if len(image.shape) == 3:
         image[:, :, :3] = image[:, :, [2, 1, 0]]  # Turn BGR to RGB (or BGRA to RGBA)
+    elif len(image.shape) == 2:
+        image = image[..., np.newaxis] # Make sure we always have a band dimension
+
     return image
 
     @classmethod
