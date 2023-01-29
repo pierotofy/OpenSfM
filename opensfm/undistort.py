@@ -37,9 +37,9 @@ def undistort_reconstruction(
     undistorted_shots = {}
     for shot in reconstruction.shots.values():
         if shot.id not in all_images:
-            logger.warning(
-                f"Not undistorting {shot.id} as it is missing from the dataset's input images."
-            )
+            # logger.warning(
+            #     f"Not undistorting {shot.id} as it is missing from the dataset's input images."
+            # )
             continue
         if shot.camera.projection_type == "perspective":
             urec.add_camera(perspective_camera_from_perspective(shot.camera))
