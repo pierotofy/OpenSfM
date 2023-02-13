@@ -16,8 +16,6 @@ target_link_libraries(foundation
     ${OpenCV_LIBS}
     ${OpenMP_libomp_LIBRARY}
     Eigen3::Eigen
-  PRIVATE
-    ${GFLAGS_LIBRARY}
 )
 target_include_directories(foundation
   PUBLIC

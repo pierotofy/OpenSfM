@@ -69,7 +69,7 @@ find_package(LAPACK)
 find_package(SuiteSparse)
 find_package(Eigen3 REQUIRED)
 find_package(Ceres REQUIRED)
-find_package(Gflags REQUIRED)
+find_package(Gflags)
 
 find_package(OpenCV)
 # OpenCV's OpenCVConfig will enforce imgcodecs for < 3.0
