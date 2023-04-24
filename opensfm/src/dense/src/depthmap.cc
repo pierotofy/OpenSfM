@@ -275,9 +275,7 @@ float DepthmapEstimator::PatchVariance(int i, int j) {
       patch[counter++] = images_[0].at<unsigned char>(i + u, j + v);
     }
   }
-  float ret = Variance(patch, patch_size_ * patch_size_);
-  delete[] patch;
-  return ret;
+  return Variance(patch, patch_size_ * patch_size_);
 }
 
 void DepthmapEstimator::PatchMatchForwardPass(DepthmapEstimatorResult *result,
