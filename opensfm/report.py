@@ -221,6 +221,9 @@ class Report:
         if "align" in self.stats:
             geo_string = ["Alignment"]
 
+        if len(geo_string) == 0:
+            geo_string = ["None"]
+
         ratio_shots = rec_shots / init_shots * 100 if init_shots > 0 else -1
         rows = [
             [
@@ -260,7 +263,7 @@ class Report:
                 "Average Ground Sampling Distance (GSD)",
                 f"{self.stats['odm_processing_statistics']['average_gsd']:.1f} cm"
             ])
-
+        
         row_gps_gcp = [" / ".join(geo_string) + " errors"]
         geo_errors = []
         
@@ -272,8 +275,9 @@ class Report:
         else:
             geo_errors.append(f"{(self.stats['align']['coarse']['rmse_3d'] + self.stats['align']['fine']['rmse_3d']):.2f}")
         
-        row_gps_gcp.append(" / ".join(geo_errors) + " meters")
-        rows.append(row_gps_gcp)
+        if len(geo_errors) > 0:
+            row_gps_gcp.append(" / ".join(geo_errors) + " meters")
+            rows.append(row_gps_gcp)
 
         self._make_table(None, rows, True)
         self.pdf.set_xy(self.margin, self.pdf.get_y() + self.margin / 2)

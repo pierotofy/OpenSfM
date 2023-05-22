@@ -564,6 +564,7 @@ def match_candidates_by_order(
             image_cand = images_cand[j]
             if image_ref != image_cand:
                 pairs.add(sorted_pair(image_ref, image_cand))
+
     return pairs
 
 
