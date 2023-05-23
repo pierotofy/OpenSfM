@@ -329,7 +329,7 @@ class Report:
         table_count = 0
         for error_type in ["gps", "gcp", "3d"]:
             rows = []
-            columns_names = [error_type.upper(), "Mean", "Sigma", "RMS Error"]
+            columns_names = [error_type.upper(), "Mean", "Standard Deviation", "RMS Error"]
             if "average_error" not in self.stats[error_type + "_errors"]:
                 continue
             for comp in ["x", "y", "z"]:
