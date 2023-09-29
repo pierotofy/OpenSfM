@@ -489,8 +489,8 @@ def processing_statistics(
 
     start_ct, end_ct = start_end_capture_time(reconstructions)
     if start_ct is not None and end_ct is not None:
-        stats["start_date"] = datetime.datetime.fromtimestamp(start_ct).strftime("%d/%m/%Y at %H:%M:%S")
-        stats["end_date"] = datetime.datetime.fromtimestamp(end_ct).strftime("%d/%m/%Y at %H:%M:%S")
+        stats["start_date"] = datetime.datetime.utcfromtimestamp(start_ct).strftime("%d/%m/%Y at %H:%M:%S")
+        stats["end_date"] = datetime.datetime.utcfromtimestamp(end_ct).strftime("%d/%m/%Y at %H:%M:%S")
     else:
         stats["start_date"] = "unknown"
         stats["end_date"] = "unknown"
