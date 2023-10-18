@@ -308,7 +308,7 @@ def two_view_reconstruction_plane_based(
         inliers = _two_view_reconstruction_inliers(b1, b2, R.T, -R.T.dot(t), threshold)
         motion_inliers.append(inliers)
 
-    best = np.argmax(map(len, motion_inliers))
+    best = np.argmax(list(map(len, motion_inliers)))
     R, t, n, d = motions[best]
     inliers = motion_inliers[best]
     return cv2.Rodrigues(R)[0].ravel(), t, inliers
