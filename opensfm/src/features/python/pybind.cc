@@ -1,5 +1,6 @@
 #include <features/akaze_bind.h>
 #include <features/hahog.h>
+#include <features/dspsift.h>
 #include <features/matching.h>
 #include <foundation/python_types.h>
 #include <pybind11/eigen.h>
@@ -54,6 +55,9 @@ PYBIND11_MODULE(pyfeatures, m) {
   m.def("akaze", features::akaze);
 
   m.def("hahog", features::hahog, py::arg("image"),
+        py::arg("peak_threshold") = 0.003, py::arg("edge_threshold") = 10,
+        py::arg("target_num_features") = 0);
+  m.def("dspsift", features::dspsift, py::arg("image"),
         py::arg("peak_threshold") = 0.003, py::arg("edge_threshold") = 10,
         py::arg("target_num_features") = 0);
 
