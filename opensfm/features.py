@@ -524,6 +524,7 @@ def extract_features_hahog(
     image: np.ndarray, config: Dict[str, Any], features_count: int
 ) -> Tuple[np.ndarray, np.ndarray]:
     t = time.time()
+
     points, desc = pyfeatures.hahog(
         image.astype(np.float32) / 255,  # VlFeat expects pixel values between 0, 1
         peak_threshold=config["hahog_peak_threshold"],
@@ -539,6 +540,22 @@ def extract_features_hahog(
 
     if config["hahog_normalize_to_uchar"]:
         desc = (uchar_scaling * desc).clip(0, 255).round()
+
+    logger.debug("Found {0} points in {1}s".format(len(points), time.time() - t))
+    return points, desc
+
+
+def extract_features_dspsift(
+    image: np.ndarray, config: Dict[str, Any], features_count: int
+) -> Tuple[np.ndarray, np.ndarray]:
+    t = time.time()
+
+    points, desc = pyfeatures.dspsift(
+        image.astype(np.float32) / 255,  # VlFeat expects pixel values between 0, 1
+        peak_threshold=0.0066666666666666671, # config["sift_peak_threshold"],
+        edge_threshold=config["sift_edge_threshold"],
+        target_num_features=features_count,
+    )
 
     logger.debug("Found {0} points in {1}s".format(len(points), time.time() - t))
     return points, desc
@@ -628,6 +645,8 @@ def extract_features(
         points, desc = extract_features_orb(image_gray, config, features_count)
     elif feature_type == 'SIFT_GPU':
         points, desc = extract_features_popsift(image_gray, config, features_count)
+    elif feature_type == 'DSPSIFT':
+        points, desc = extract_features_dspsift(image_gray, config, features_count)
     else:
         raise ValueError(
             "Unknown feature type " "(must be SURF, SIFT, AKAZE, HAHOG, SIFT_GPU or ORB)"
