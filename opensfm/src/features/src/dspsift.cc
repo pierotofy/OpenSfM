@@ -46,14 +46,13 @@ FeatureDescriptors FeatureDescriptorsToUnsignedByte(
 namespace features {
 
 py::tuple dspsift(foundation::pyarray_f image, float peak_threshold,
-                float edge_threshold, int target_num_features) {
+                float edge_threshold, int target_num_features, 
+                bool feature_root, bool domain_size_pooling) {
   if (!image.size()) {
     return py::none();
   }
 
-  bool feature_root = true;
   // bool estimate_affine_shape = true;
-  bool domain_size_pooling = true;
 
   double dsp_min_scale = 1.0 / 6.0;
   double dsp_max_scale = 3.0;
@@ -80,25 +79,25 @@ py::tuple dspsift(foundation::pyarray_f image, float peak_threshold,
     vl_covdet_set_peak_threshold(covdet.get(), peak_threshold);
     vl_covdet_set_edge_threshold(covdet.get(), edge_threshold);
 
-    std::cout << "IMAGE" << std::endl;
-
     vl_covdet_put_image(covdet.get(), image.data(), image.shape(1), image.shape(0));
-    
-    // vl_covdet_set_non_extrema_suppression_threshold(covdet, 0);
 
-    std::cout << "HERE" << std::endl;
+    // vl_covdet_set_non_extrema_suppression_threshold(covdet.get(), 0);
 
-    int num_features = 0;
-    while(true){
-      int prev_num_features = num_features;
-      vl_covdet_detect(covdet.get(), target_num_features);
-      num_features = vl_covdet_get_num_features(covdet.get());
+    vl_covdet_detect(covdet.get(), target_num_features);
+    int num_features = vl_covdet_get_num_features(covdet.get());
 
-      if (num_features < target_num_features && peak_threshold > 0.0001 && prev_num_features < num_features){
-        peak_threshold = (peak_threshold * 2.0f) / 3.0f;
-        vl_covdet_set_peak_threshold(covdet.get(), peak_threshold);
-      }else break;
-    }
+    // int num_features = 0;
+    // while(true){
+    //   int prev_num_features = num_features;
+    //   vl_covdet_detect(covdet.get(), target_num_features);
+    //   num_features = vl_covdet_get_num_features(covdet.get());
+
+    //   if (num_features < target_num_features && peak_threshold > 0.0001 && prev_num_features < num_features){
+    //     peak_threshold = (peak_threshold * 2.0f) / 3.0f;
+    //     vl_covdet_set_peak_threshold(covdet.get(), peak_threshold);
+    //   }else break;
+    // }
+
     // if (estimate_affine_shape){
     //   vl_covdet_extract_affine_shape(covdet.get());
     // } else {
@@ -131,8 +130,8 @@ py::tuple dspsift(foundation::pyarray_f image, float peak_threshold,
       float det = features[i].frame.a11 * features[i].frame.a22 - features[i].frame.a12 * features[i].frame.a21;
       float size = sqrt(fabs(det));
       float angle = atan2(features[i].frame.a21, features[i].frame.a11) * 180.0f / M_PI;
-      keypoints[4 * i + 0] = features[i].frame.x;// + 0.5; // TODO: Should this be + 0.5?
-      keypoints[4 * i + 1] = features[i].frame.y;// + 0.5;
+      keypoints[4 * i + 0] = features[i].frame.x;
+      keypoints[4 * i + 1] = features[i].frame.y;
       keypoints[4 * i + 2] = size;
       keypoints[4 * i + 3] = angle;
 
@@ -149,7 +148,6 @@ py::tuple dspsift(foundation::pyarray_f image, float peak_threshold,
     }
 
     keypoints_count = i;
-    keypoints.resize(4 * keypoints_count);
 
     // Compute the descriptors for the detected keypoints.
     descriptors.resize(keypoints_count, 128);
@@ -241,12 +239,8 @@ py::tuple dspsift(foundation::pyarray_f image, float peak_threshold,
       descriptors.row(i) = FeatureDescriptorsToUnsignedByte(descriptor);
     }
 
-      // *descriptors = TransformVLFeatToUBCFeatureDescriptors(*descriptors);
+    // *descriptors = TransformVLFeatToUBCFeatureDescriptors(*descriptors);
   }
-
-  std::cout << descriptors.rows() << " x " << descriptors.cols() << std::endl;
-  std::cout << keypoints.size() << "  " << descriptors.size() << std::endl;
-  
 
   return py::make_tuple(
     foundation::py_array_from_data(keypoints.data(), keypoints_count, 4),
