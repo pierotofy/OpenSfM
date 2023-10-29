@@ -937,9 +937,11 @@ def save_topview(
     )
     plt.yticks(
         [im_size_y, im_size_y / 2, 0],
-        [0, f"{int(size_y / 2):.0f}", f"{size_y:.0f} meters"],
+        [f"{size_y:.0f} meters", f"{int(size_y / 2):.0f}", 0],
         fontsize="small",
     )
+    plt.gca().invert_yaxis()
+
     with io_handler.open(os.path.join(output_path, "topview.png"), "wb") as fwb:
         plt.savefig(
             fwb,
