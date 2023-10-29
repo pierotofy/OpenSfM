@@ -552,9 +552,10 @@ def extract_features_dspsift(
 
     points, desc = pyfeatures.dspsift(
         image.astype(np.float32) / 255,  # VlFeat expects pixel values between 0, 1
-        peak_threshold=0.0066666666666666671, # config["sift_peak_threshold"],
-        edge_threshold=config["sift_edge_threshold"],
+        peak_threshold=0.0066666666666666671,
+        edge_threshold=10,
         target_num_features=features_count,
+        feature_root=bool(config["feature_root"]),
         estimate_affine_shape=False,
     )
 
