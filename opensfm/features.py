@@ -555,6 +555,7 @@ def extract_features_dspsift(
         peak_threshold=0.0066666666666666671, # config["sift_peak_threshold"],
         edge_threshold=config["sift_edge_threshold"],
         target_num_features=features_count,
+        estimate_affine_shape=False,
     )
 
     logger.debug("Found {0} points in {1}s".format(len(points), time.time() - t))

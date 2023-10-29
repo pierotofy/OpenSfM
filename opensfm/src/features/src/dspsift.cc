@@ -47,23 +47,22 @@ namespace features {
 
 py::tuple dspsift(foundation::pyarray_f image, float peak_threshold,
                 float edge_threshold, int target_num_features, 
-                bool feature_root, bool domain_size_pooling) {
+                bool feature_root, bool domain_size_pooling, bool estimate_affine_shape) {
   if (!image.size()) {
     return py::none();
   }
 
-  // bool estimate_affine_shape = true;
-
-  double dsp_min_scale = 1.0 / 6.0;
-  double dsp_max_scale = 3.0;
-  int dsp_num_scales = 10;
-  
   FeatureDescriptors descriptors;
   FeatureKeypoints keypoints;
   int keypoints_count = 0;
+  const int kpDimension = 4;
 
   {
     py::gil_scoped_release release;
+
+    double dsp_min_scale = 1.0 / 6.0;
+    double dsp_max_scale = 3.0;
+    int dsp_num_scales = 10;
 
     // Setup covariant SIFT detector.
     std::unique_ptr<VlCovDet, void (*)(VlCovDet*)> covdet(
@@ -80,29 +79,28 @@ py::tuple dspsift(foundation::pyarray_f image, float peak_threshold,
     vl_covdet_set_edge_threshold(covdet.get(), edge_threshold);
 
     vl_covdet_put_image(covdet.get(), image.data(), image.shape(1), image.shape(0));
-
     // vl_covdet_set_non_extrema_suppression_threshold(covdet.get(), 0);
 
-    vl_covdet_detect(covdet.get(), target_num_features);
-    int num_features = vl_covdet_get_num_features(covdet.get());
+    // vl_covdet_detect(covdet.get(), target_num_features);
+    // int num_features = vl_covdet_get_num_features(covdet.get());
 
-    // int num_features = 0;
-    // while(true){
-    //   int prev_num_features = num_features;
-    //   vl_covdet_detect(covdet.get(), target_num_features);
-    //   num_features = vl_covdet_get_num_features(covdet.get());
+    int num_features = 0;
+    while(true){
+      int prev_num_features = num_features;
+      vl_covdet_detect(covdet.get(), target_num_features);
+      num_features = vl_covdet_get_num_features(covdet.get());
 
-    //   if (num_features < target_num_features && peak_threshold > 0.0001 && prev_num_features < num_features){
-    //     peak_threshold = (peak_threshold * 2.0f) / 3.0f;
-    //     vl_covdet_set_peak_threshold(covdet.get(), peak_threshold);
-    //   }else break;
-    // }
+      if (num_features < target_num_features && peak_threshold > 0.0001 && prev_num_features < num_features){
+        peak_threshold = (peak_threshold * 2.0f) / 3.0f;
+        vl_covdet_set_peak_threshold(covdet.get(), peak_threshold);
+      }else break;
+    }
 
-    // if (estimate_affine_shape){
-    //   vl_covdet_extract_affine_shape(covdet.get());
-    // } else {
+    if (estimate_affine_shape){
+      vl_covdet_extract_affine_shape(covdet.get());
+    } else {
       vl_covdet_extract_orientations(covdet.get());
-    // }
+    }
 
     VlCovDetFeature* features = vl_covdet_get_features(covdet.get());
     
@@ -124,16 +122,17 @@ py::tuple dspsift(foundation::pyarray_f image, float peak_threshold,
     int prev_octave_scale_idx = std::numeric_limits<int>::max();
     keypoints_count = std::min(target_num_features, num_features);
 
-    keypoints.resize(4 * keypoints_count);
+    keypoints.resize(kpDimension * keypoints_count);
     int i = 0;
     for (; i < keypoints_count; ++i) {
+      keypoints[kpDimension * i + 0] = features[i].frame.x;
+      keypoints[kpDimension * i + 1] = features[i].frame.y;
+
       float det = features[i].frame.a11 * features[i].frame.a22 - features[i].frame.a12 * features[i].frame.a21;
       float size = sqrt(fabs(det));
       float angle = atan2(features[i].frame.a21, features[i].frame.a11) * 180.0f / M_PI;
-      keypoints[4 * i + 0] = features[i].frame.x;
-      keypoints[4 * i + 1] = features[i].frame.y;
-      keypoints[4 * i + 2] = size;
-      keypoints[4 * i + 3] = angle;
+      keypoints[kpDimension * i + 2] = size;
+      keypoints[kpDimension * i + 3] = angle;
 
       const int octave_scale_idx =
           features[i].o * kMaxOctaveResolution + features[i].s;
@@ -243,7 +242,7 @@ py::tuple dspsift(foundation::pyarray_f image, float peak_threshold,
   }
 
   return py::make_tuple(
-    foundation::py_array_from_data(keypoints.data(), keypoints_count, 4),
+    foundation::py_array_from_data(keypoints.data(), keypoints_count, kpDimension),
     foundation::py_array_from_data(descriptors.data(), keypoints_count, 128));
 }
 

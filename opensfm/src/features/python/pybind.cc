@@ -61,7 +61,8 @@ PYBIND11_MODULE(pyfeatures, m) {
         py::arg("peak_threshold") = 0.003, py::arg("edge_threshold") = 10,
         py::arg("target_num_features") = 0,
         py::arg("feature_root") = true,
-        py::arg("domain_size_pooling") = true);
+        py::arg("domain_size_pooling") = true,
+        py::arg("estimate_affine_shape") = true);
 
   m.def("match_using_words", features::match_using_words);
   m.def("compute_vlad_descriptor", features::compute_vlad_descriptor,
