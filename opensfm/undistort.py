@@ -77,6 +77,7 @@ def undistort_reconstruction(
 
     return undistorted_shots
 
+_camera_mapping_cache = {}
 
 def undistort_reconstruction_with_images(
     tracks_manager: Optional[pymap.TracksManager],
@@ -86,6 +87,9 @@ def undistort_reconstruction_with_images(
     imageFilter: Callable[[str, np.ndarray], np.ndarray] = None,
     skip_images: bool = False,
 ) -> Dict[pymap.Shot, List[pymap.Shot]]:
+    global _camera_mapping_cache
+    _camera_mapping_cache = {}
+
     undistorted_shots = undistort_reconstruction(
         tracks_manager, reconstruction, data, udata
     )
@@ -127,7 +131,7 @@ def undistort_image_and_masks(arguments) -> None:
     # Undistort image
     image = data.load_image(shot.id, unchanged=True, anydepth=True)
     if image is not None:
-        if imageFilter is not None:
+        if hasattr(imageFilter, '__call__'):
             image = imageFilter(shot.id, image)
         undistorted = undistort_image(
             shot, undistorted_shots, image, cv2.INTER_AREA, max_size
@@ -152,6 +156,20 @@ def undistort_image_and_masks(arguments) -> None:
         )
         for k, v in undistorted.items():
             udata.save_undistorted_segmentation(k, v)
+
+
+def compute_camera_mapping_cached(camera, new_camera, width, height):
+    global _camera_mapping_cache
+    key = "%s-%s-%s-%s" % (camera.id, new_camera.id, width, height)
+
+    if key in _camera_mapping_cache:
+        return _camera_mapping_cache[key]
+    
+    map1, map2 = pygeometry.compute_camera_mapping(
+        camera, new_camera, width, height
+    )
+    _camera_mapping_cache[key] = (map1, map2)
+    return _camera_mapping_cache[key]
 
 
 def undistort_image(
@@ -180,7 +198,7 @@ def undistort_image(
         [undistorted_shot] = undistorted_shots
         new_camera = undistorted_shot.camera
         height, width = original.shape[:2]
-        map1, map2 = pygeometry.compute_camera_mapping(
+        map1, map2 = compute_camera_mapping_cached(
             shot.camera, new_camera, width, height
         )
         undistorted = cv2.remap(original, map1, map2, interpolation)
