@@ -119,6 +119,7 @@ def undistort_reconstruction_with_images(
             )
 
         parallel_map(undistort_image_and_masks, arguments, processes)
+    _camera_mapping_cache = {}
     return undistorted_shots
 
 
