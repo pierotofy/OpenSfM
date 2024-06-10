@@ -1,5 +1,6 @@
 import itertools
 import logging
+import os
 from typing import Iterator, List, Dict, Optional, Callable
 
 import cv2
@@ -119,9 +120,59 @@ def undistort_reconstruction_with_images(
             )
 
         parallel_map(undistort_image_and_masks, arguments, processes)
+    
+    dump_camera_mapping_cache(os.path.join(data.data_path, "camera_mappings.npz"))
+
     _camera_mapping_cache = {}
     return undistorted_shots
 
+
+def dump_camera_mapping_cache(dest_file):
+    global _camera_mapping_cache
+
+    ids = []
+    x_maps = []
+    y_maps = []
+    offsets = []
+
+    def cast_to_max(arr):
+        m = np.max(arr)
+        if m <= 255:
+            return arr.astype(np.uint8)
+        elif m <= 65535:
+            return arr.astype(np.uint16)
+        else:
+            return arr.astype(np.uint32)
+
+    # Dump the camera mappings information for each camera
+    # compressing the numbers by rounding to nearest int
+    # and then by attempting to offset the values
+    # the original value of the map can then be computed with:
+    # map1[px_y, px_x] <--> compressed_map1[px_y,px_x] + offset[0] + px_x
+    # map2[px_y, px_x] <--> compressed_map2[px_y,px_x] + offset[1] + px_y
+    # (note our values are rounded to the closest pixel, though)
+    for key, v in _camera_mapping_cache.items():
+        ids.append(v['id'])
+        map1, map2 = v['map']
+        map1 = np.round(map1)
+        map2 = np.round(map2)
+
+        i = np.arange(map1.shape[0]).reshape(-1, 1)
+        j = np.arange(map1.shape[1])
+        map1 -= j
+        map2 -= i
+        offset = np.array([np.min(map1), np.min(map2)])
+        map1 -= offset[0]
+        map2 -= offset[1]
+
+        map1 = cast_to_max(map1)
+        map2 = cast_to_max(map2)
+
+        x_maps.append(map1)
+        y_maps.append(map2)
+        offsets.append(offset)
+
+    np.savez_compressed(dest_file, ids=ids, *x_maps, *y_maps, *offsets)
 
 def undistort_image_and_masks(arguments) -> None:
     shot, undistorted_shots, data, udata, imageFilter = arguments
@@ -164,13 +215,17 @@ def compute_camera_mapping_cached(camera, new_camera, width, height):
     key = "%s-%s-%s-%s" % (camera.id, new_camera.id, width, height)
 
     if key in _camera_mapping_cache:
-        return _camera_mapping_cache[key]
+        return _camera_mapping_cache[key]['map']
     
     map1, map2 = pygeometry.compute_camera_mapping(
         camera, new_camera, width, height
     )
-    _camera_mapping_cache[key] = (map1, map2)
-    return _camera_mapping_cache[key]
+
+    _camera_mapping_cache[key] = {
+        'map': (map1, map2),
+        'id': camera.id
+    }
+    return _camera_mapping_cache[key]['map']
 
 
 def undistort_image(
