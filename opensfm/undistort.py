@@ -143,23 +143,25 @@ def dump_camera_mapping_cache(dest_file):
             return arr.astype(np.uint32)
 
     # Dump the camera mappings information for each camera
-    # compressing the numbers by rounding to nearest int
+    # compressing the numbers by rounding to nearest int * mul
     # and then by attempting to offset the values
     # the original value of the map can then be computed with:
-    # map1[px_y, px_x] <--> compressed_map1[px_y,px_x] + offset[0] + px_x
-    # map2[px_y, px_x] <--> compressed_map2[px_y,px_x] + offset[1] + px_y
-    # (note our values are rounded to the closest pixel, though)
+    # map1[px_y, px_x] <--> ((compressed_map1[px_y,px_x] + offset[0]) / 10.0) + px_x
+    # map2[px_y, px_x] <--> ((compressed_map2[px_y,px_x] + offset[1]) / 10.0) + px_y
+    # (note our values are rounded to 1/10th of a pixel)
     idx = 0
     for key, v in _camera_mapping_cache.items():
         ids.append(v['id'])
         map1, map2 = v['map']
-        map1 = np.round(map1)
-        map2 = np.round(map2)
+        mul = 10.0 # keep precision up to 1/10th of a pixel
 
         i = np.arange(map1.shape[0]).reshape(-1, 1)
         j = np.arange(map1.shape[1])
         map1 -= j
         map2 -= i
+        map1 = np.round(map1 * mul)
+        map2 = np.round(map2 * mul)
+
         offset = np.array([np.min(map1), np.min(map2)])
         map1 -= offset[0]
         map2 -= offset[1]
@@ -170,6 +172,7 @@ def dump_camera_mapping_cache(dest_file):
         outs['%s_x' % idx] = map1
         outs['%s_y' % idx] = map2
         outs['%s_offset' % idx] = offset
+        outs['%s_mul' % idx] = np.array([mul])
 
         idx += 1
 
