@@ -131,9 +131,7 @@ def dump_camera_mapping_cache(dest_file):
     global _camera_mapping_cache
 
     ids = []
-    x_maps = []
-    y_maps = []
-    offsets = []
+    outs = {}
 
     def cast_to_max(arr):
         m = np.max(arr)
@@ -151,6 +149,7 @@ def dump_camera_mapping_cache(dest_file):
     # map1[px_y, px_x] <--> compressed_map1[px_y,px_x] + offset[0] + px_x
     # map2[px_y, px_x] <--> compressed_map2[px_y,px_x] + offset[1] + px_y
     # (note our values are rounded to the closest pixel, though)
+    idx = 0
     for key, v in _camera_mapping_cache.items():
         ids.append(v['id'])
         map1, map2 = v['map']
@@ -168,11 +167,13 @@ def dump_camera_mapping_cache(dest_file):
         map1 = cast_to_max(map1)
         map2 = cast_to_max(map2)
 
-        x_maps.append(map1)
-        y_maps.append(map2)
-        offsets.append(offset)
+        outs['%s_x' % idx] = map1
+        outs['%s_y' % idx] = map2
+        outs['%s_offset' % idx] = offset
 
-    np.savez_compressed(dest_file, ids=ids, *x_maps, *y_maps, *offsets)
+        idx += 1
+
+    np.savez_compressed(dest_file, ids=ids, **outs)
 
 def undistort_image_and_masks(arguments) -> None:
     shot, undistorted_shots, data, udata, imageFilter = arguments
