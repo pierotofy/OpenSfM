@@ -14,6 +14,7 @@ from opensfm import context, features, geo, pygeometry, pymap, types
 from PIL import Image
 
 import rasterio
+import rawpy
 import sys
 from rasterio.plot import reshape_as_image
 import warnings
@@ -1205,6 +1206,8 @@ def imread(
     _, ext = os.path.splitext(path)
     if ext.lower() == ".tiff" or ext.lower() == ".tif":
         return imread_rasterio(path, grayscale, unchanged, anydepth)
+    elif ext.lower() in [".dng", ".raw", ".nef"]:
+        return imread_rawpy(path, grayscale, unchanged, anydepth)
     else:
         with open(path, "rb") as fb:
             return imread_from_fileobject(fb, grayscale, unchanged, anydepth)
@@ -1270,6 +1273,20 @@ def imread_rasterio(path, grayscale=False, unchanged=False, anydepth=False):
     with rasterio.open(path, "r") as f:
         image = reshape_as_image(f.read())
 
+    return _imread_postprocess(image, grayscale, unchanged, anydepth)
+
+
+def imread_rawpy(path, grayscale=False, unchanged=False, anydepth=False):
+    if grayscale:
+        raise IOError("Grayscale not implemented")
+
+    with rawpy.imread(path) as r:
+        image = r.postprocess(output_bps=16, use_auto_wb=True)
+
+    return _imread_postprocess(image, grayscale, unchanged, anydepth)
+
+
+def _imread_postprocess(image, grayscale=False, unchanged=False, anydepth=False):
     if image is None: 
         raise IOError("Unable to load image {}".format(path))
 
@@ -1489,6 +1506,8 @@ class IoFilesystemDefault(IoFilesystemBase):
         _, ext = os.path.splitext(path)
         if ext.lower() == ".tiff" or ext.lower() == ".tif":
             return imread_rasterio(path, grayscale, unchanged, anydepth)
+        elif ext.lower() in [".dng", ".raw", ".nef"]:
+            return imread_rawpy(path, grayscale, unchanged, anydepth)
         else:
             with cls.open(path, "rb") as fb:
                 return imread_from_fileobject(fb, grayscale, unchanged, anydepth)
