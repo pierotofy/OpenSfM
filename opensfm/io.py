@@ -1281,7 +1281,7 @@ def imread_rawpy(path, grayscale=False, unchanged=False, anydepth=False):
         raise IOError("Grayscale not implemented")
 
     with rawpy.imread(path) as r:
-        image = r.postprocess(output_bps=16, use_auto_wb=True)
+        image = r.postprocess(output_bps=16, use_camera_wb=True, use_auto_wb=False)
 
     return _imread_postprocess(image, grayscale, unchanged, anydepth)
 
