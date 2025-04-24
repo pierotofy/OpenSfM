@@ -312,7 +312,8 @@ class Report:
         column_names = ["ID", "Error X (m)", "Error Y (m)", "Error Z (m)"]
 
         for gcp in gcp_stats:
-            row = [gcp["id"]]
+            gcp_id = ''.join(c if ord(c) < 256 else '?' for c in gcp["id"]) # latin-1 only due to fpdf2 requirements
+            row = [gcp_id]
             row.append(f"{gcp['error'][0]:.3f}")
             row.append(f"{gcp['error'][1]:.3f}")
             row.append(f"{gcp['error'][2]:.3f}")
