@@ -1659,7 +1659,7 @@ def incremental_reconstruction(
 
     remaining_images = set(images)
     gcp = data.load_ground_control_points()
-    common_tracks = tracking.all_common_tracks_with_features(tracks_manager)
+    common_tracks = tracking.all_common_tracks_with_features(tracks_manager, processes=data.config["processes"])
     reconstructions = []
     pairs = compute_image_pairs(common_tracks, data)
     chrono.lap("compute_image_pairs")
