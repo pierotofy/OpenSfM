@@ -192,4 +192,14 @@ MatX3d Shot::BearingMany(const MatX2d& points) const {
   }
   return bearings;
 }
+
+Vec3d Shot::LandmarkBearing(const Landmark* landmark) const {
+  auto it = landmark_observations_.find(const_cast<Landmark*>(landmark));
+  if (it == landmark_observations_.end()) {
+    throw std::runtime_error("Landmark not observed in this shot");
+  }
+  const Observation& obs = it->second;
+  return Bearing(obs.point);
+}
+
 }  // namespace map

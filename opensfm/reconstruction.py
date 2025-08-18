@@ -685,7 +685,7 @@ def resect(
     bs = np.array(bs)
     Xs = np.array(Xs)
     if len(bs) < 5:
-        return False, set(), {"num_common_points": len(bs)}
+        return False, set(), set(), {"num_common_points": len(bs)}
 
     T = multiview.absolute_pose_ransac(bs, Xs, threshold, 1000, 0.999)
 
@@ -716,15 +716,17 @@ def resect(
             triangulate_shot_features(
                 tracks_manager, reconstruction, new_shots, data.config
             )
+        tracks = set()
         for i, succeed in enumerate(inliers):
             if succeed:
                 add_observation_to_reconstruction(
                     tracks_manager, reconstruction, shot_id, ids[i]
                 )
+                tracks.add(ids[i])
         report["shots"] = list(new_shots)
-        return True, new_shots, report
+        return True, new_shots, tracks, report
     else:
-        return False, set(), report
+        return False, set(), set(), report
 
 
 def corresponding_tracks(
@@ -890,7 +892,7 @@ class TrackTriangulator:
         reproj_threshold: float,
         min_ray_angle_degrees: float,
         iterations: int,
-    ) -> None:
+    ) -> bool:
         """Triangulate track in a RANSAC way and add point to reconstruction."""
         os, bs, ids = [], [], []
         for shot_id, obs in self.tracks_handler.get_observations(track).items():
@@ -902,7 +904,7 @@ class TrackTriangulator:
             ids.append(shot_id)
 
         if len(ids) < 2:
-            return
+            return False
 
         os = np.array(os)
         bs = np.array(bs)
@@ -981,6 +983,7 @@ class TrackTriangulator:
             self.tracks_handler.store_track_coordinates(track, best_point)
             for i in best_inliers:
                 self.tracks_handler.store_inliers_observation(track, ids[i])
+        return len(best_inliers) > 1
 
     def triangulate(
         self,
@@ -988,7 +991,7 @@ class TrackTriangulator:
         reproj_threshold: float,
         min_ray_angle_degrees: float,
         iterations: int,
-    ) -> None:
+    ) -> bool:
         """Triangulate track and add point to reconstruction."""
         os, bs, ids = [], [], []
         for shot_id, obs in self.tracks_handler.get_observations(track).items():
@@ -1015,6 +1018,8 @@ class TrackTriangulator:
                 self.tracks_handler.store_track_coordinates(track, X.tolist())
                 for shot_id in ids:
                     self.tracks_handler.store_inliers_observation(track, shot_id)
+                return True
+        return False
 
     def triangulate_dlt(
         self,
@@ -1022,7 +1027,7 @@ class TrackTriangulator:
         reproj_threshold: float,
         min_ray_angle_degrees: float,
         iterations: int,
-    ) -> None:
+    ) -> bool:
         """Triangulate track using DLT and add point to reconstruction."""
         Rts, bs, os, ids = [], [], [], []
         for shot_id, obs in self.tracks_handler.get_observations(track).items():
@@ -1047,6 +1052,8 @@ class TrackTriangulator:
                 self.tracks_handler.store_track_coordinates(track, X.tolist())
                 for shot_id in ids:
                     self.tracks_handler.store_inliers_observation(track, shot_id)
+                return True
+        return False
 
     def triangulate_planar(
         self, track: str, threshold: float
@@ -1127,7 +1134,7 @@ def triangulate_shot_features(
     reconstruction: types.Reconstruction,
     shot_ids: Set[str],
     config: Dict[str, Any],
-) -> None:
+) -> List[str]:
     """Reconstruct as many tracks seen in shot_id as possible."""
     reproj_threshold = config["triangulation_threshold"]
     min_ray_angle = config["triangulation_min_ray_angle"]
@@ -1144,17 +1151,20 @@ def triangulate_shot_features(
         if s in all_shots_ids
         for t in tracks_manager.get_shot_observations(s)
     }
+    created_tracks = []
     for track in tracks_ids:
         if track not in reconstruction.points:
             if config["triangulation_type"] == "ROBUST":
-                triangulator.triangulate_robust(
+                if (triangulator.triangulate_robust(
                     track, reproj_threshold, min_ray_angle, refinement_iterations
-                )
+                )):
+                    created_tracks.append(track)
             elif config["triangulation_type"] == "FULL":
-                triangulator.triangulate(
+                if (triangulator.triangulate(
                     track, reproj_threshold, min_ray_angle, refinement_iterations
-                )
-
+                )):
+                    created_tracks.append(track)
+    return created_tracks
 
 def retriangulate(
     tracks_manager: pymap.TracksManager,
@@ -1446,6 +1456,32 @@ class ShouldRetriangulate:
     def done(self) -> None:
         self.num_points_last = len(self.reconstruction.points)
 
+class ResectionCandidates:
+    """Helper to keep track of resection candidates."""
+
+    def __init__(self, tracks_manager: pymap.TracksManager, reconstruction: types.Reconstruction) -> None:
+        self.tracks_manager = tracks_manager
+        self.reconstruction = reconstruction
+        self.candidates: Dict[str, Set[str]] = {}
+
+    def add(self, shots: List[str], tracks: List[str]) -> None:
+        """Add newly resected tracks and the shots they belong to."""
+        for shot_id in shots:
+            if shot_id in self.candidates:
+                del self.candidates[shot_id]
+
+        for track_id in tracks:
+            for shot_id in self.tracks_manager.get_track_observations(track_id):
+                if shot_id in self.reconstruction.shots:
+                    continue
+                if shot_id not in self.candidates:
+                    self.candidates[shot_id] = set()
+                self.candidates[shot_id].add(track_id)
+
+    def get_candidates(self, images: Set[str]) -> List[Tuple[str, int]]:
+        """Get sorted candidates for resection."""
+        return filter(lambda x: x[0] in images, sorted(self.candidates.items(), key=lambda x: -len(x[1])))
+
 
 def grow_reconstruction(
     data: DataSetBase,
@@ -1468,8 +1504,14 @@ def grow_reconstruction(
     remove_outliers(reconstruction, config)
     paint_reconstruction(data, tracks_manager, reconstruction)
 
+    resection_candidates = ResectionCandidates(tracks_manager, reconstruction)
     should_bundle = ShouldBundle(data, reconstruction)
     should_retriangulate = ShouldRetriangulate(data, reconstruction)
+
+    resection_candidates.add(
+        list(reconstruction.shots.keys()),
+        list(reconstruction.points.keys()),
+    )
     while True:
         if config["save_partial_reconstructions"]:
             paint_reconstruction(data, tracks_manager, reconstruction)
@@ -1480,9 +1522,7 @@ def grow_reconstruction(
                 ),
             )
 
-        candidates = reconstructed_points_for_images(
-            tracks_manager, reconstruction, images
-        )
+        candidates = resection_candidates.get_candidates(images)
         if not candidates:
             break
 
@@ -1490,7 +1530,7 @@ def grow_reconstruction(
         threshold = data.config["resection_threshold"]
         min_inliers = data.config["resection_min_inliers"]
         for image, _ in candidates:
-            ok, new_shots, resrep = resect(
+            ok, new_shots, resected_tracks, resrep = resect(
                 data,
                 tracks_manager,
                 reconstruction,
@@ -1509,6 +1549,7 @@ def grow_reconstruction(
                 rig_camera_priors,
                 data.config,
             )
+            resection_candidates.add(new_shots, resected_tracks)
 
             logger.info(f"Adding {' and '.join(new_shots)} to the reconstruction")
             step: Dict[str, Union[List[int], List[str], int, List[int], Any]] = {
@@ -1519,7 +1560,8 @@ def grow_reconstruction(
             report["steps"].append(step)
 
             np_before = len(reconstruction.points)
-            triangulate_shot_features(tracks_manager, reconstruction, new_shots, config)
+            new_tracks = triangulate_shot_features(tracks_manager, reconstruction, new_shots, config)
+            resection_candidates.add([], new_tracks)
             np_after = len(reconstruction.points)
             step["triangulated_points"] = np_after - np_before
 

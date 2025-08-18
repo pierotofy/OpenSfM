@@ -141,7 +141,8 @@ class Shot {
   MatX2d ProjectMany(const MatX3d& points) const;
   Vec3d Bearing(const Vec2d& point) const;
   MatX3d BearingMany(const MatX2d& points) const;
-
+  Vec3d LandmarkBearing(const Landmark* landmark) const;
+  
   // Covariance
   MatXd GetCovariance() const { return covariance_.Value(); }
   void SetCovariance(const MatXd& cov) { covariance_.SetValue(cov); }
