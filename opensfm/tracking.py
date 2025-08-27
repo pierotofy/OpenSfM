@@ -3,7 +3,7 @@ import typing as t
 
 import networkx as nx
 import numpy as np
-from opensfm import pymap
+from opensfm import context, pymap
 from opensfm.dataset_base import DataSetBase
 from opensfm.unionfind import UnionFind
 from opensfm.pymap import TracksManager
@@ -21,24 +21,37 @@ def load_features(
     t.Dict[str, np.ndarray],
 ]:
     logging.info("reading features")
+
+    def load_one(im):
+        features_data = dataset.load_features(im)
+        if not features_data:
+            return im, None, None, None, None
+        features = features_data.points[:, :3]
+        colors = features_data.colors
+        segmentations = None
+        instances = None
+        if features_data.semantic:
+            segmentations = features_data.semantic.segmentation
+            if features_data.semantic.has_instances():
+                instances = features_data.semantic.instances
+
+        return im, features, colors, segmentations, instances
+
+    # Use context.parallel_map for parallel loading
+    results = context.parallel_map(load_one, images, dataset.config.get("processes", 1))
+
     features = {}
     colors = {}
     segmentations = {}
     instances = {}
-    for im in images:
-        features_data = dataset.load_features(im)
-
-        if not features_data:
-            continue
-
-        features[im] = features_data.points[:, :3]
-        colors[im] = features_data.colors
-
-        semantic_data = features_data.semantic
-        if semantic_data:
-            segmentations[im] = semantic_data.segmentation
-            if semantic_data.has_instances():
-                instances[im] = semantic_data.instances
+    for im, feat, color, seg, inst in results:
+        if feat is not None:
+            features[im] = feat
+            colors[im] = color
+            if seg is not None:
+                segmentations[im] = seg
+            if inst is not None:
+                instances[im] = inst
 
     return features, colors, segmentations, instances
 
