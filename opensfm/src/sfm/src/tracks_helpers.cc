@@ -14,6 +14,9 @@ std::unordered_map<map::ShotId, int> CountTracksPerShot(
   }
   
   std::unordered_map<map::ShotId, int> counts;
+  for (int i = 0; i < shots.size(); ++i) {
+    counts[shots[i]] = 0;
+  }
 
 #pragma omp parallel
 {
@@ -46,6 +49,7 @@ std::unordered_map<map::ShotId, int> CountTracksPerShot(
 
   return counts;
 }
+
 
 void AddConnections(map::TracksManager& manager, const map::ShotId& shot_id,
                     const std::vector<map::TrackId>& connections) {
