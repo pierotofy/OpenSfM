@@ -1,10 +1,12 @@
 import os
+import logging
 
 import numpy as np
 from opensfm import io
 from opensfm import pydense
 from opensfm.dataset import DataSet, UndistortedDataSet
 
+logger = logging.getLogger(__name__)
 
 def run_dataset(data: DataSet, image_list) -> None:
     """ Export reconstruction to OpenMVS format. """
@@ -46,6 +48,10 @@ def export(reconstruction, tracks_manager, udata: UndistortedDataSet, export_onl
 
         if shot.camera.projection_type == "perspective":
             image_path = udata._undistorted_image_file(shot.id)
+            if not os.path.isfile(image_path):
+                logger.warning(f"Not exporting {shot.id} since undistorted image is missing")
+                continue
+
             mask_path = udata._undistorted_mask_file(shot.id)
             if not os.path.isfile(mask_path):
                 mask_path = ""
