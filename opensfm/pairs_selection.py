@@ -634,9 +634,16 @@ def match_candidates_from_metadata(
         d = match_candidates_by_distance(
             images_ref, images_cand, exifs, reference, gps_neighbors, max_distance
         )
-        g = match_candidates_by_graph(
-            images_ref, images_cand, exifs, reference, graph_rounds
-        )
+        try:
+            g = match_candidates_by_graph(
+                images_ref, images_cand, exifs, reference, graph_rounds
+            )
+        except spatial.QhullError:
+            # Fallback to distance
+            g = match_candidates_by_distance(
+                images_ref, images_cand, exifs, reference, 12, 0
+            )
+
         t = match_candidates_by_time(images_ref, images_cand, exifs, time_neighbors)
         o = match_candidates_by_order(images_ref, images_cand, order_neighbors)
         b = match_candidates_with_bow(

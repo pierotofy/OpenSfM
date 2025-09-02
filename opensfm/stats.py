@@ -343,7 +343,7 @@ def _projection_error(
                 norm_pixels = _norm2d(error_unnormalized * normalizer)
                 norm_normalized = _norm2d(error_normalized)
                 norm_angle = error_angular[0]
-                if norm_pixels > RESIDUAL_PIXEL_CUTOFF or math.isnan(norm_angle):
+                if norm_pixels > RESIDUAL_PIXEL_CUTOFF or math.isnan(norm_angle) or math.isnan(norm_normalized):
                     continue
                 average_error_normalized += norm_normalized
                 average_error_pixels += norm_pixels
